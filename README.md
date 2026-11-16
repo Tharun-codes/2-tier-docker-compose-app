@@ -1,221 +1,135 @@
-# 🐳 Multi-Tier Microservices Architecture with Docker & Docker Compose
+# 2-Tier Docker Compose App
 
-[![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
-[![Docker Compose](https://img.shields.io/badge/Docker_Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://docs.docker.com/compose/)
-[![Node.js](https://img.shields.io/badge/Node.js_20-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
-[![Express.js](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
-[![Python](https://img.shields.io/badge/Python_3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![Flask](https://img.shields.io/badge/Flask_3.0-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
-[![Linux](https://img.shields.io/badge/Alpine_Linux-0D597F?style=for-the-badge&logo=alpinelinux&logoColor=white)](https://alpinelinux.org/)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Node.js](https://img.shields.io/badge/Node.js-20-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 
----
+A small, full-stack application demonstrating how to run a Node.js/Express frontend and a Python/Flask API as separate Docker containers, connected with Docker Compose.
 
-## 📌 Overview
+The frontend accepts a name and forwards it to the backend over Docker's private service network. The backend returns a greeting, which the frontend displays in the browser.
 
-This project demonstrates a production-grade, containerized multi-tier microservices application built with **Docker** and orchestrated with **Docker Compose**. 
+## Architecture
 
-It showcases key DevOps and full-stack engineering principles:
-* **Microservices Decoupling**: Separation of presentation layer (Node.js/Express) and business logic layer (Python/Flask).
-* **Container Orchestration**: Declarative multi-container deployment using Docker Compose.
-* **Internal Service Discovery & DNS**: Inter-container communication resolved dynamically via Docker's embedded DNS on an isolated custom bridge network (`http://backend:5000`).
-* **Optimized Container Builds**: Lightweight Alpine Linux-based images (`node:20-alpine` and `python:3.11-alpine`) for reduced attack surface and minimal image footprints.
-* **Dependency & Lifecycle Management**: Automated startup sequencing ensuring backend services initialize before consumer services.
-
----
-
-## 🏗️ Architecture & Communication Flow
-
-```
-                     ┌─────────────────────────────────────────┐
-                     │               Host Machine              │
-                     └────────────────────┬────────────────────┘
-                                          │
-                        Browser Request   │   Port 3000:3000
-                                          ▼
-                ┌───────────────────────────────────────────────────┐
-                │ Docker Network: frontend-network (Bridge)        │
-                │                                                   │
-                │   ┌────────────────────┐                          │
-                │   │  frontend Service  │ (Node.js 20 Alpine)      │
-                │   │  Container: :3000  │                          │
-                │   └─────────┬──────────┘                          │
-                │             │                                     │
-                │             │ HTTP POST                           │
-                │             │ http://backend:5000/process         │
-                │             ▼ (DNS Resolution via Docker Engine)  │
-                │   ┌────────────────────┐                          │
-                │   │  backend Service   │ (Python 3.11 Alpine)     │
-                │   │  Container: :5000  │                          │
-                │   └────────────────────┘                          │
-                └───────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    Browser["Browser<br/>localhost:3000"] --> Frontend["Frontend<br/>Node.js 20 · Express"]
+    Frontend -->|"POST /process<br/>http://backend:5000"| Backend["Backend<br/>Python 3.11 · Flask"]
+    Backend --> Frontend
+    Frontend --> Browser
+    subgraph Docker Compose
+        Frontend
+        Backend
+    end
 ```
 
-### Request Lifecycle
-1. **User Request**: The client opens `http://localhost:3000` to interact with the frontend UI.
-2. **Frontend Ingestion**: Express processes user input from the HTML form.
-3. **Internal API Call**: The frontend dispatches an asynchronous HTTP POST request using `Axios` to `http://backend:5000/process`.
-4. **Service Discovery**: Docker's internal DNS resolver maps the hostname `backend` directly to the backend container's assigned internal IP.
-5. **Payload Processing**: The Flask API ingests the JSON payload, computes the response, and returns it to Express.
-6. **Client Render**: Express renders the formatted response back to the client.
+Compose starts both services on the `frontend-network` bridge network. The frontend reaches the backend using the Compose service name `backend`; no container IP address is hardcoded.
 
----
+## Tech stack
 
-## 🛠️ Tech Stack & Container Specifications
+| Component | Technology | Container port | Purpose |
+| --- | --- | ---: | --- |
+| Frontend | Node.js 20, Express, Axios | `3000` | Serves the form and sends requests to the API |
+| Backend | Python 3.11, Flask | `5000` | Accepts a name and returns a greeting |
+| Orchestration | Docker Compose | — | Builds, starts, and connects the services |
+| Networking | User-defined bridge network | — | Enables private service-to-service communication |
 
-| Layer | Technology | Base Image | Port | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| **Frontend** | Node.js / Express | `node:20-alpine` | `3000` | Serves client assets and proxies requests to backend |
-| **Backend** | Python / Flask | `python:3.11-alpine` | `5000` | Microservice processing application data |
-| **Orchestrator** | Docker Compose | Specification v3+ | — | Multi-container networking, volume, and service management |
-| **Networking** | Docker Bridge Network | Custom (`frontend-network`) | — | Isolated inter-container communication layer |
-
----
-
-## 📁 Repository Structure
-
-```text
-.
-├── backend/
-│   ├── app.py              # Flask REST application & endpoint handlers
-│   ├── Dockerfile          # Lean Python Alpine container definition
-│   └── requirements.txt    # Python runtime dependencies (Flask 3.0.2)
-├── frontend/
-│   ├── app.js              # Express web server & Axios backend proxy
-│   ├── Dockerfile          # Lean Node.js Alpine container definition
-│   ├── package.json        # Node dependencies & metadata
-│   ├── package-lock.json   # Deterministic lockfile
-│   └── public/
-│       └── index.html      # Frontend UI interface
-├── .gitignore              # Ignored paths (node_modules, caches, venv)
-├── docker-compose.yml      # Orchestration config (services, networks, ports)
-└── README.md               # Project documentation
-```
-
----
-
-## 🚀 Quick Start Guide
+## Run locally with Docker
 
 ### Prerequisites
-Make sure you have installed on your machine:
-* [Docker Desktop](https://www.docker.com/products/docker-desktop/) (includes Docker Engine and Docker Compose)
-* [Git](https://git-scm.com/)
 
-Verify your installation:
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) or Docker Engine with the Compose plugin
+- [Git](https://git-scm.com/) to clone the repository
+
+Check that Docker and Compose are available:
+
 ```bash
 docker --version
 docker compose version
 ```
 
-### 1. Clone the Repository
+### Start the application
+
 ```bash
-git clone https://github.com/<your-username>/docker-compose-microservices.git
-cd docker-compose-microservices
+git clone https://github.com/Tharun-codes/2-tier-docker-compose-app.git
+cd 2-tier-docker-compose-app
+docker compose up --build
 ```
 
-### 2. Launch the Application
-Build and run the entire stack in detached mode:
+Open [http://localhost:3000](http://localhost:3000), enter a name, and submit the form. Compose publishes the backend on port `5000` as well.
+
+To run the containers in the background, add `-d`:
+
 ```bash
 docker compose up --build -d
 ```
 
-> **Note**: The `--build` flag ensures Docker builds fresh images from the source `Dockerfile`s on initial start or code changes.
+## API
 
-### 3. Verify Container Status
-Check that both services are healthy and running:
+| Service | Method and path | Description |
+| --- | --- | --- |
+| Frontend | `GET /` | Serves the name-entry form |
+| Frontend | `POST /submit` | Sends the submitted name to the backend |
+| Backend | `GET /` | Returns a simple text response |
+| Backend | `POST /process` | Accepts a `name` and returns a greeting |
+
+Example backend request:
+
 ```bash
-docker compose ps
+curl -X POST http://localhost:5000/process \
+  -H "Content-Type: application/json" \
+  -d "{\"name\":\"Ada\"}"
 ```
 
-You should see output similar to:
+Example response:
+
 ```text
-NAME                        IMAGE                 COMMAND                  SERVICE    STATUS    PORTS
-docker_compose-backend-1    docker_compose-backend    "python app.py"          backend    running   0.0.0.0:5000->5000/tcp
-docker_compose-frontend-1   docker_compose-frontend   "docker-entrypoint.s…"   frontend   running   0.0.0.0:3000->3000/tcp
+Hello, Ada from Flask!
 ```
 
-### 4. Access the Application
-* **Frontend Web UI**: [http://localhost:3000](http://localhost:3000)
-* **Backend Direct Healthcheck**: [http://localhost:5000](http://localhost:5000)
+## Useful commands
 
----
+| Action | Command |
+| --- | --- |
+| View service status | `docker compose ps` |
+| Follow logs | `docker compose logs -f` |
+| Follow one service's logs | `docker compose logs -f backend` |
+| Stop running services | `docker compose stop` |
+| Stop and remove containers and network | `docker compose down` |
+| Rebuild images | `docker compose build --no-cache` |
 
-## 🔌 API Endpoints Reference
+## Project structure
 
-### Backend Microservice (`http://localhost:5000`)
-
-| Method | Endpoint | Description | Request Body | Response |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/` | Health check route | None | `Hello, World from Flaskk!` |
-| `POST` | `/process` | Processes received payload | `{"name": "string"}` | `Hello, <name> from Flask!` |
-
-### Frontend Service (`http://localhost:3000`)
-
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/` | Serves client web form (`index.html`) |
-| `POST` | `/submit` | Accepts form input, queries backend via Docker network, renders response |
-
----
-
-## 🔍 DevOps & Container Engineering Highlights
-
-### 1. Zero-Configuration Service Discovery
-Instead of hardcoding brittle IP addresses, services communicate using service names defined in `docker-compose.yml`:
-```javascript
-// frontend/app.js
-const response = await axios.post('http://backend:5000/process', req.body);
+```text
+.
+├── backend/
+│   ├── app.py
+│   ├── Dockerfile
+│   └── requirements.txt
+├── frontend/
+│   ├── public/
+│   │   └── index.html
+│   ├── app.js
+│   ├── Dockerfile
+│   └── package.json
+├── docker-compose.yml
+└── README.md
 ```
-Docker's embedded DNS automatically resolves `backend` to the private IP assigned to the backend container within `frontend-network`.
 
-### 2. Isolated Custom Bridge Network
-Default bridge networks share access across arbitrary containers. This project defines a dedicated bridge network (`frontend-network`), ensuring network-level isolation and strict security boundaries.
+## What this project demonstrates
 
-### 3. Minimal Footprint via Alpine Linux
-Both images use official **Alpine Linux** distributions:
-* **Backend**: `python:3.11-alpine` (~50MB compressed base vs. ~300MB Debian base)
-* **Frontend**: `node:20-alpine` (~40MB compressed base vs. ~350MB standard base)
+- Separating a web frontend and API into independently built services
+- Building container images from Node.js and Python Alpine base images
+- Defining service startup and port mappings with Docker Compose
+- Connecting containers through a user-defined bridge network
+- Using Compose service-name DNS for internal HTTP requests
 
-This minimizes deployment latency, reduces disk usage, and hardens the container attack surface by stripping non-essential binaries.
+## Possible next steps
 
-### 4. Deterministic Dependency Caching
-Both Dockerfiles copy package dependency manifests (`requirements.txt`, `package*.json`) before source code. This leverages Docker's layer caching mechanism: code edits do not trigger unnecessary dependency re-installations.
+- Add container health checks and explicit readiness handling
+- Add automated tests and a continuous integration workflow
+- Move service configuration into environment variables
+- Add a persistent datastore if the application needs to store data
 
----
+## Author
 
-## 📋 Common Operations & Useful Commands
-
-| Task | Command |
-| :--- | :--- |
-| **Stream Live Logs** | `docker compose logs -f` |
-| **Stream Backend Logs Only** | `docker compose logs -f backend` |
-| **Stop Containers** | `docker compose stop` |
-| **Tear Down Stack & Networks** | `docker compose down` |
-| **Rebuild Without Cache** | `docker compose build --no-cache` |
-| **Execute Shell in Container** | `docker compose exec backend sh` |
-
----
-
-## 🔮 Roadmap & Production Enhancements
-
-- [ ] **Reverse Proxy**: Add Nginx container as an ingress controller for SSL/TLS termination and load balancing.
-- [ ] **Data Persistence**: Integrate a managed database service (e.g., PostgreSQL or Redis) with named Docker volumes.
-- [ ] **Healthchecks**: Implement native Docker `HEALTHCHECK` instructions for self-healing container lifecycles.
-- [ ] **CI/CD Pipeline**: GitHub Actions workflow for automated image scanning (Trivy), linting, and Docker Hub registry push.
-- [ ] **Environment Configuration**: Decouple environment variables using `.env` files for 12-factor compliance.
-
----
-
-## 👨‍💻 Author
-
-* **Developer**: *Your Name*
-* **GitHub**: [@yourusername](https://github.com/yourusername)
-* **LinkedIn**: [linkedin.com/in/yourprofile](https://linkedin.com/in/yourprofile)
-* **Portfolio**: [yourportfolio.com](https://yourportfolio.com)
-
----
-
-## 📄 License
-
-This project is licensed under the [ISC License](LICENSE) - feel free to use, modify, and distribute for personal and professional projects.
-#   2 - t i e r - d o c k e r - c o m p o s e - a p p  
- 
+**Tharun** · [GitHub](https://github.com/Tharun-codes)
