@@ -4,7 +4,7 @@
 [![Node.js](https://img.shields.io/badge/Node.js-20-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 
-A small, full-stack application demonstrating how to run a Node.js/Express frontend and a Python/Flask API as separate Docker containers, connected with Docker Compose.
+A small, full-stack application demonstrating how to run a Node.js/Express frontend and a Python/Flask API as separate Docker containers, connected with Docker-Compose.
 
 The frontend accepts a name and forwards it to the backend over Docker's private service network. The backend returns a greeting, which the frontend displays in the browser.
 
